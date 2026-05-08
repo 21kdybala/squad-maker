@@ -1333,6 +1333,28 @@ function triggerDownloadFromBlob(blob, fileName) {
   return url;
 }
 
+function triggerDownloadFromDataUrl(dataUrl, fileName) {
+  const anchor = document.createElement("a");
+  anchor.href = dataUrl;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  return dataUrl;
+}
+
+function getErrorMessage(error) {
+  if (!error) return "unknown";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message || error.name || "error";
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 /* Navigation */
 if (els.brandHome) {
   els.brandHome.addEventListener("click", () => setStep(1));
@@ -1434,78 +1456,98 @@ async function saveImageFile() {
       // 폰트 로드는 실패해도 저장 자체는 진행.
     }
   }
-  await document.fonts.ready;
+  if (document.fonts?.ready) await document.fonts.ready;
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
-    const canvas = await html2canvas(els.capture, {
-      scale: Math.min(2.5, Math.max(2, window.devicePixelRatio || 2)),
-      useCORS: true,
-      allowTaint: true,
-      /** 카드 하단 톤과 맞춤 — 반투명 배경과 합치면 테두리가 탁해짐 */
-      backgroundColor: "#131b22",
-      logging: false,
-      removeContainer: false,
-      imageTimeout: 15000,
-      onclone(doc) {
-        const root = doc.getElementById("capture");
-        if (!root) return;
-        root.classList.add("is-exporting");
+    const renderWith = (overrides = {}) =>
+      html2canvas(els.capture, {
+        scale: Math.min(2.5, Math.max(2, window.devicePixelRatio || 2)),
+        useCORS: true,
+        // 캔버스 오염 리소스가 끼어 export가 막히는 것을 방지.
+        allowTaint: false,
+        /** 카드 하단 톤과 맞춤 — 반투명 배경과 합치면 테두리가 탁해짐 */
+        backgroundColor: "#131b22",
+        logging: false,
+        removeContainer: false,
+        imageTimeout: 15000,
+        onclone(doc) {
+          const root = doc.getElementById("capture");
+          if (!root) return;
+          root.classList.add("is-exporting");
 
-        // 복제 DOM에서도 입력창/미러 상태를 강제로 맞춰 캡처 시점 레이스를 방지.
-        root.querySelectorAll("input.name-input").forEach((inp) => {
-          const node = inp.closest(".position-node");
-          const mir = node?.querySelector(".name-mirror");
-          if (mir) {
-            const slotId = inp.dataset.slotId || "";
-            mir.textContent = nameSnapshot[slotId] ?? "";
-            mir.style.display = "flex";
-            mir.style.opacity = "1";
-          }
-          inp.style.display = "none";
-        });
-        root.querySelectorAll("input.sub-input").forEach((inp) => {
-          const row = inp.closest(".sub-row");
-          const mir = row?.querySelector(".sub-mirror");
-          if (mir) {
-            const subKey = inp.dataset.subKey || "";
-            mir.textContent = subSnapshot[subKey] ?? "";
-            mir.style.display = "flex";
-            mir.style.opacity = "1";
-          }
-          inp.style.display = "none";
-        });
+          // 복제 DOM에서도 입력창/미러 상태를 강제로 맞춰 캡처 시점 레이스를 방지.
+          root.querySelectorAll("input.name-input").forEach((inp) => {
+            const node = inp.closest(".position-node");
+            const mir = node?.querySelector(".name-mirror");
+            if (mir) {
+              const slotId = inp.dataset.slotId || "";
+              mir.textContent = nameSnapshot[slotId] ?? "";
+              mir.style.display = "flex";
+              mir.style.opacity = "1";
+            }
+            inp.style.display = "none";
+          });
+          root.querySelectorAll("input.sub-input").forEach((inp) => {
+            const row = inp.closest(".sub-row");
+            const mir = row?.querySelector(".sub-mirror");
+            if (mir) {
+              const subKey = inp.dataset.subKey || "";
+              mir.textContent = subSnapshot[subKey] ?? "";
+              mir.style.display = "flex";
+              mir.style.opacity = "1";
+            }
+            inp.style.display = "none";
+          });
 
-        const setExact = (el) => {
-          if (el.nodeType !== Node.ELEMENT_NODE) return;
-          el.style.setProperty("-webkit-print-color-adjust", "exact");
-          el.style.setProperty("print-color-adjust", "exact");
-          el.style.setProperty("color-adjust", "exact");
-          for (const child of el.children) setExact(child);
-        };
-        setExact(root);
-      },
-    });
+          const setExact = (el) => {
+            if (el.nodeType !== Node.ELEMENT_NODE) return;
+            el.style.setProperty("-webkit-print-color-adjust", "exact");
+            el.style.setProperty("print-color-adjust", "exact");
+            el.style.setProperty("color-adjust", "exact");
+            for (const child of el.children) setExact(child);
+          };
+          setExact(root);
+        },
+        ...overrides,
+      });
+
+    let canvas;
+    try {
+      canvas = await renderWith();
+    } catch (firstErr) {
+      // 특정 브라우저에서 CORS/클론 이슈로 1차 렌더가 실패할 수 있어 완화 설정으로 1회 재시도.
+      console.warn("primary export failed, retrying relaxed mode", firstErr);
+      canvas = await renderWith({
+        useCORS: false,
+        allowTaint: true,
+      });
+    }
 
     /** JPEG는 크로마 서브샘플링으로 채도 손실될 수 있음 → 최고 품질 */
     const quality = fmt === "jpeg" ? 1 : undefined;
     const mimeType = fmt === "png" ? "image/png" : "image/jpeg";
-    const blob = await canvasToBlob(canvas, mimeType, quality);
-    if (!blob) throw new Error("blob-convert-failed");
 
     const ext = fmt === "png" ? "png" : "jpg";
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, "").replace("T", "-");
     const fname = `squad-${stamp}.${ext}`;
 
-    const shared = await tryShareImage(blob, fname);
-    if (shared) return;
-
-    const objectUrl = triggerDownloadFromBlob(blob, fname);
+    let objectUrlOrDataUrl = "";
+    const blob = await canvasToBlob(canvas, mimeType, quality);
+    if (blob) {
+      const shared = await tryShareImage(blob, fname);
+      if (shared) return;
+      objectUrlOrDataUrl = triggerDownloadFromBlob(blob, fname);
+    } else {
+      // 일부 브라우저에서 toBlob이 null을 반환하므로 dataURL 경로로 재시도.
+      const dataUrl = canvas.toDataURL(mimeType, quality);
+      objectUrlOrDataUrl = triggerDownloadFromDataUrl(dataUrl, fname);
+    }
 
     // iOS Safari는 download 속성이 자주 무시되어 이미지 탭을 열어 길게 눌러 저장하도록 처리.
     if (isIOSDevice()) {
-      const win = window.open(objectUrl, "_blank");
-      if (!win) window.location.href = objectUrl;
+      const win = window.open(objectUrlOrDataUrl, "_blank");
+      if (!win) window.location.href = objectUrlOrDataUrl;
       alert("이미지가 새 탭에 열렸습니다. 이미지를 길게 눌러 사진에 저장해 주세요.");
       return;
     }
@@ -1514,13 +1556,13 @@ async function saveImageFile() {
     if (isMobileDevice()) {
       setTimeout(() => {
         if (document.visibilityState === "visible") {
-          window.open(objectUrl, "_blank");
+          window.open(objectUrlOrDataUrl, "_blank");
         }
       }, 220);
     }
   } catch (e) {
     console.error(e);
-    alert("이미지 저장에 실패했습니다. 브라우저를 최신으로 유지했는지 확인해 주세요.");
+    alert(`이미지 저장 실패: ${getErrorMessage(e)}`);
   } finally {
     els.capture.classList.remove("is-exporting");
     els.btnSaveImage.disabled = false;
