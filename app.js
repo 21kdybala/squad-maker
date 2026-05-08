@@ -1263,7 +1263,8 @@ function handleStep3InputKeydown(e) {
   const el = e.target;
   if (!(el instanceof HTMLInputElement)) return;
   if (!el.matches("input.name-input, input.sub-input")) return;
-  if (window.matchMedia("(max-width: 720px)").matches) return;
+  // 모바일(터치 기반)에서만 키 이동을 비활성화하고, 좁은 데스크톱 창은 허용.
+  if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) return;
 
   const order = getStep3OrderedInputs();
   const i = order.indexOf(el);
@@ -1299,10 +1300,9 @@ function isIOSDevice() {
   return /iPad|iPhone|iPod/i.test(navigator.userAgent || "");
 }
 
-async function tryShareImage(dataUrl, fileName) {
+async function tryShareImage(blob, fileName) {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
   try {
-    const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], fileName, { type: blob.type || "image/png" });
     if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: "squad-maker" });
@@ -1312,6 +1312,25 @@ async function tryShareImage(dataUrl, fileName) {
     return false;
   }
   return false;
+}
+
+function canvasToBlob(canvas, mimeType, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), mimeType, quality);
+  });
+}
+
+function triggerDownloadFromBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return url;
 }
 
 /* Navigation */
@@ -1392,6 +1411,18 @@ async function saveImageFile() {
   syncExportMirrors();
   els.capture.classList.add("is-exporting");
 
+  // html2canvas clone에서 input의 실시간 value가 유실될 수 있어, 캡처 직전 값을 별도로 스냅샷.
+  const nameSnapshot = {};
+  els.capture.querySelectorAll("input.name-input").forEach((inp) => {
+    if (!inp.dataset.slotId) return;
+    nameSnapshot[inp.dataset.slotId] = inp.value.trim();
+  });
+  const subSnapshot = {};
+  els.capture.querySelectorAll("input.sub-input").forEach((inp) => {
+    if (!inp.dataset.subKey) return;
+    subSnapshot[inp.dataset.subKey] = inp.value.trim();
+  });
+
   // 배포 환경에서 캡처 직전에 웹폰트가 늦게 적용되는 경우를 대비.
   if (document.fonts?.load) {
     try {
@@ -1419,6 +1450,32 @@ async function saveImageFile() {
       onclone(doc) {
         const root = doc.getElementById("capture");
         if (!root) return;
+        root.classList.add("is-exporting");
+
+        // 복제 DOM에서도 입력창/미러 상태를 강제로 맞춰 캡처 시점 레이스를 방지.
+        root.querySelectorAll("input.name-input").forEach((inp) => {
+          const node = inp.closest(".position-node");
+          const mir = node?.querySelector(".name-mirror");
+          if (mir) {
+            const slotId = inp.dataset.slotId || "";
+            mir.textContent = nameSnapshot[slotId] ?? "";
+            mir.style.display = "flex";
+            mir.style.opacity = "1";
+          }
+          inp.style.display = "none";
+        });
+        root.querySelectorAll("input.sub-input").forEach((inp) => {
+          const row = inp.closest(".sub-row");
+          const mir = row?.querySelector(".sub-mirror");
+          if (mir) {
+            const subKey = inp.dataset.subKey || "";
+            mir.textContent = subSnapshot[subKey] ?? "";
+            mir.style.display = "flex";
+            mir.style.opacity = "1";
+          }
+          inp.style.display = "none";
+        });
+
         const setExact = (el) => {
           if (el.nodeType !== Node.ELEMENT_NODE) return;
           el.style.setProperty("-webkit-print-color-adjust", "exact");
@@ -1432,34 +1489,32 @@ async function saveImageFile() {
 
     /** JPEG는 크로마 서브샘플링으로 채도 손실될 수 있음 → 최고 품질 */
     const quality = fmt === "jpeg" ? 1 : undefined;
-    const dataUrl =
-      fmt === "png" ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", quality);
+    const mimeType = fmt === "png" ? "image/png" : "image/jpeg";
+    const blob = await canvasToBlob(canvas, mimeType, quality);
+    if (!blob) throw new Error("blob-convert-failed");
 
     const ext = fmt === "png" ? "png" : "jpg";
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, "").replace("T", "-");
     const fname = `squad-${stamp}.${ext}`;
 
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = fname;
-    const shared = await tryShareImage(dataUrl, fname);
+    const shared = await tryShareImage(blob, fname);
     if (shared) return;
+
+    const objectUrl = triggerDownloadFromBlob(blob, fname);
 
     // iOS Safari는 download 속성이 자주 무시되어 이미지 탭을 열어 길게 눌러 저장하도록 처리.
     if (isIOSDevice()) {
-      const win = window.open(dataUrl, "_blank");
-      if (!win) window.location.href = dataUrl;
+      const win = window.open(objectUrl, "_blank");
+      if (!win) window.location.href = objectUrl;
       alert("이미지가 새 탭에 열렸습니다. 이미지를 길게 눌러 사진에 저장해 주세요.");
       return;
     }
-
-    a.click();
 
     // 일부 모바일 브라우저(특히 안드로이드 웹뷰)에서 download 무시 시 새 탭 fallback.
     if (isMobileDevice()) {
       setTimeout(() => {
         if (document.visibilityState === "visible") {
-          window.open(dataUrl, "_blank");
+          window.open(objectUrl, "_blank");
         }
       }, 220);
     }
