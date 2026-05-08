@@ -1185,6 +1185,7 @@ function renderPitch() {
     };
 
     input.addEventListener("input", sync);
+    input.addEventListener("keydown", handleStep3InputKeydown);
     nameMirror.textContent = (state.names[slot.id] || "").trim();
 
     marker.appendChild(abbr);
@@ -1231,6 +1232,7 @@ function renderSubs() {
       mirror.textContent = input.value.trim();
       saveState();
     });
+    input.addEventListener("keydown", handleStep3InputKeydown);
 
     row.appendChild(num);
     row.appendChild(input);
@@ -1261,13 +1263,16 @@ function handleStep3InputKeydown(e) {
   const el = e.target;
   if (!(el instanceof HTMLInputElement)) return;
   if (!el.matches("input.name-input, input.sub-input")) return;
-  if (e.isComposing) return;
+  if (window.matchMedia("(max-width: 720px)").matches) return;
 
   const order = getStep3OrderedInputs();
   const i = order.indexOf(el);
   if (i === -1) return;
 
-  if (e.key === "Enter" && !e.shiftKey) {
+  const isEnter = (e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter");
+  if (isEnter && !e.shiftKey) {
+    // 한글 IME 조합 중 Enter는 글자 확정용이므로 포커스 이동을 건너뜀.
+    if (e.isComposing) return;
     e.preventDefault();
     if (i < order.length - 1) order[i + 1].focus();
     return;
@@ -1286,13 +1291,32 @@ function handleStep3InputKeydown(e) {
   }
 }
 
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+}
+
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent || "");
+}
+
+async function tryShareImage(dataUrl, fileName) {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const file = new File([blob], fileName, { type: blob.type || "image/png" });
+    if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: "squad-maker" });
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 /* Navigation */
 if (els.brandHome) {
   els.brandHome.addEventListener("click", () => setStep(1));
-}
-
-if (els.step3) {
-  els.step3.addEventListener("keydown", handleStep3InputKeydown);
 }
 
 function goFromStep1ToStep2() {
@@ -1368,6 +1392,17 @@ async function saveImageFile() {
   syncExportMirrors();
   els.capture.classList.add("is-exporting");
 
+  // 배포 환경에서 캡처 직전에 웹폰트가 늦게 적용되는 경우를 대비.
+  if (document.fonts?.load) {
+    try {
+      await Promise.all([
+        document.fonts.load('700 14px "Nanum Gothic"'),
+        document.fonts.load('900 14px "Nanum Gothic"'),
+      ]);
+    } catch {
+      // 폰트 로드는 실패해도 저장 자체는 진행.
+    }
+  }
   await document.fonts.ready;
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
@@ -1407,7 +1442,27 @@ async function saveImageFile() {
     const a = document.createElement("a");
     a.href = dataUrl;
     a.download = fname;
+    const shared = await tryShareImage(dataUrl, fname);
+    if (shared) return;
+
+    // iOS Safari는 download 속성이 자주 무시되어 이미지 탭을 열어 길게 눌러 저장하도록 처리.
+    if (isIOSDevice()) {
+      const win = window.open(dataUrl, "_blank");
+      if (!win) window.location.href = dataUrl;
+      alert("이미지가 새 탭에 열렸습니다. 이미지를 길게 눌러 사진에 저장해 주세요.");
+      return;
+    }
+
     a.click();
+
+    // 일부 모바일 브라우저(특히 안드로이드 웹뷰)에서 download 무시 시 새 탭 fallback.
+    if (isMobileDevice()) {
+      setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          window.open(dataUrl, "_blank");
+        }
+      }, 220);
+    }
   } catch (e) {
     console.error(e);
     alert("이미지 저장에 실패했습니다. 브라우저를 최신으로 유지했는지 확인해 주세요.");
