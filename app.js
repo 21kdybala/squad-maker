@@ -1968,12 +1968,18 @@ function applyMobileLineSpacing(slots, formationId = state.formationId) {
   const line = orderedIds.map((id) => byId.get(id)).filter(Boolean);
   if (line.length < 5) return result;
 
-  const inset = 21;
+  const origXs = line.map((s) => s.x);
+  const inset = 18;
   const maxX = 100 - inset;
   const span = maxX - inset;
+  const safeMin = 13;
+  const safeMax = 87;
 
   line.forEach((slot, i) => {
-    slot.x = Math.round((inset + (span * i) / (line.length - 1)) * 10) / 10;
+    const tightX = inset + (span * i) / (line.length - 1);
+    let x = tightX * 0.32 + origXs[i] * 0.68;
+    x = Math.min(safeMax, Math.max(safeMin, x));
+    slot.x = Math.round(x * 10) / 10;
   });
 
   return result;
