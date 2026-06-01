@@ -2,37 +2,43 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="11·10·9인제 축구 포메이션과 라인업을 만들고 이미지로 저장하는 스쿼드 메이커" />
+  <meta name="theme-color" content="#3d195b" />
   <title>축구 스쿼드 메이커</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="stylesheet" href="styles.css?v=20260528-publish" />
 </head>
-<body>
+<body class="theme-pl">
   <div class="app">
     <header class="header">
       <button type="button" class="header__home" id="brandHome" aria-label="첫 번째 단계로 이동">
-        <span class="header__logo" aria-hidden="true">⚽</span>
-        <div class="header__titles">
+        <div class="header__brand">
+          <p class="header__kicker">Football Squad Maker</p>
           <h1 class="header__main">축구 스쿼드 메이커</h1>
-          <p class="header__tagline">Football Squad Maker</p>
+          <div class="header__rule" aria-hidden="true"></div>
         </div>
       </button>
     </header>
 
     <nav class="steps" aria-label="진행 단계">
-      <div class="steps__item is-active" data-step-indicator="1">
-        <span class="steps__num">1</span>
+      <button type="button" class="steps__item is-active" data-step-indicator="1" aria-label="1단계: 경기 인원">
+        <span class="steps__num" aria-hidden="true">1</span>
         <span class="steps__label">경기 인원</span>
-      </div>
+      </button>
       <div class="steps__line" aria-hidden="true"></div>
-      <div class="steps__item" data-step-indicator="2">
-        <span class="steps__num">2</span>
+      <button type="button" class="steps__item" data-step-indicator="2" aria-label="2단계: 포메이션" disabled>
+        <span class="steps__num" aria-hidden="true">2</span>
         <span class="steps__label">포메이션</span>
-      </div>
+      </button>
       <div class="steps__line" aria-hidden="true"></div>
-      <div class="steps__item" data-step-indicator="3">
-        <span class="steps__num">3</span>
+      <button type="button" class="steps__item" data-step-indicator="3" aria-label="3단계: 라인업" disabled>
+        <span class="steps__num" aria-hidden="true">3</span>
         <span class="steps__label">라인업</span>
-      </div>
+      </button>
     </nav>
 
     <main>
@@ -117,7 +123,7 @@
     </footer>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="./app.js?v=20260508-2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+  <script src="./app.js?v=20260528-publish" defer></script>
 </body>
 </html>

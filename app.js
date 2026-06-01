@@ -868,8 +868,47 @@ function defaultState() {
     step: 1,
     match: null,
     formationId: null,
+    freeMode: false,
+    freePositions: {},
     names: {},
     subs: {},
+  };
+}
+
+function sanitizePersistedState(s) {
+  const base = defaultState();
+  if (!s || typeof s !== "object") return base;
+
+  const match = [11, 10, 9].includes(s.match) ? s.match : null;
+  const freeMode = !!s.freeMode;
+  let formationId = typeof s.formationId === "string" ? s.formationId : null;
+  const names = s.names && typeof s.names === "object" ? s.names : {};
+  const subs = s.subs && typeof s.subs === "object" ? s.subs : {};
+  const freePositions = s.freePositions && typeof s.freePositions === "object" ? s.freePositions : {};
+
+  if (!match) {
+    return base;
+  }
+
+  if (freeMode) {
+    formationId = null;
+  } else if (formationId) {
+    const valid = (OPTIONS[match] || []).some((f) => f.id === formationId);
+    if (!valid) formationId = null;
+  }
+
+  if (!freeMode && !formationId) {
+    return { ...base, match, names: {}, subs: {}, freePositions: {} };
+  }
+
+  return {
+    step: 1,
+    match,
+    formationId: freeMode ? null : formationId,
+    freeMode,
+    freePositions: freeMode ? freePositions : {},
+    names,
+    subs,
   };
 }
 
@@ -877,25 +916,19 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
-    const s = JSON.parse(raw);
-    if (![11, 10, 9].includes(s.match)) s.match = null;
-    if (!s.names || typeof s.names !== "object") s.names = {};
-    if (!s.subs || typeof s.subs !== "object") s.subs = {};
-    return {
-      step: 1,
-      match: s.match,
-      formationId: s.formationId,
-      names: s.names,
-      subs: s.subs,
-    };
+    return sanitizePersistedState(JSON.parse(raw));
   } catch {
     return defaultState();
   }
 }
 
 function saveState() {
-  const { step: _s, ...persist } = state;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(persist));
+  try {
+    const { step: _s, ...persist } = state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persist));
+  } catch {
+    // 사생활 모드·용량 초과 등 — 앱 동작은 계속
+  }
 }
 
 let state = loadState();
@@ -923,6 +956,29 @@ const els = {
   choiceCards: [...document.querySelectorAll(".choice-card")],
   brandHome: document.getElementById("brandHome"),
 };
+
+const REQUIRED_EL_KEYS = [
+  "step1",
+  "step2",
+  "step3",
+  "formationGrid",
+  "pitch",
+  "subsList",
+  "capture",
+  "btnStep1Next",
+  "btnStep2Next",
+  "btnSaveImage",
+  "exportFormat",
+];
+
+function assertRequiredElements() {
+  const missing = REQUIRED_EL_KEYS.filter((key) => !els[key]);
+  if (!missing.length) return true;
+  console.error("squad-maker: missing DOM nodes", missing);
+  document.body.innerHTML =
+    '<p style="margin:2rem;font-family:system-ui,sans-serif;text-align:center">페이지를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.</p>';
+  return false;
+}
 
 function getFormationList() {
   if (!state.match) return [];
@@ -968,7 +1024,29 @@ function getSelectedFormation() {
   return list.find((f) => f.id === state.formationId) || null;
 }
 
+/** 상단 단계 바 — 해당 단계로 이동 가능한지 */
+function canNavigateToStep(step) {
+  if (step === 1) return true;
+  if (step === 2) return !!state.match;
+  if (step === 3) return !!state.match && (!!state.freeMode || !!state.formationId);
+  return false;
+}
+
+function updateStepIndicatorsNav() {
+  els.stepIndicators.forEach((el) => {
+    const n = Number(el.dataset.stepIndicator);
+    const allowed = canNavigateToStep(n);
+    el.disabled = !allowed;
+    el.classList.toggle("is-disabled", !allowed);
+    if (allowed) el.removeAttribute("aria-disabled");
+    else el.setAttribute("aria-disabled", "true");
+    if (n === state.step) el.setAttribute("aria-current", "step");
+    else el.removeAttribute("aria-current");
+  });
+}
+
 function setStep(step) {
+  if (!canNavigateToStep(step)) return;
   state.step = step;
   saveState();
 
@@ -977,6 +1055,7 @@ function setStep(step) {
     el.classList.toggle("is-active", n === step);
     el.classList.toggle("is-done", n < step);
   });
+  updateStepIndicatorsNav();
 
   [els.step1, els.step2, els.step3].forEach((panel, i) => {
     const n = i + 1;
@@ -1004,7 +1083,36 @@ function renderFormationChoices() {
     (state.match === 9 && POPULAR_9_IDS.length);
   if (els.step2Legend) els.step2Legend.hidden = !hasPopular;
 
-  let hasSelection = false;
+  // 직접 배치 버튼
+  const freeBtn = document.createElement("button");
+  freeBtn.type = "button";
+  freeBtn.className = "formation-btn formation-btn--free" + (state.freeMode ? " is-selected" : "");
+  freeBtn.setAttribute("role", "option");
+  freeBtn.dataset.formationId = "__free__";
+  const freeIcon = document.createElement("span");
+  freeIcon.className = "formation-btn__free-icon";
+  freeIcon.setAttribute("aria-hidden", "true");
+  freeIcon.textContent = "✦";
+  freeBtn.appendChild(freeIcon);
+  const freeTitleEl = document.createElement("span");
+  freeTitleEl.className = "formation-btn__title";
+  freeTitleEl.textContent = "직접 배치";
+  freeBtn.appendChild(freeTitleEl);
+  freeBtn.addEventListener("click", () => {
+    els.formationGrid.querySelectorAll(".formation-btn").forEach((b) => b.classList.remove("is-selected"));
+    freeBtn.classList.add("is-selected");
+    state.freeMode = true;
+    state.formationId = null;
+    state.names = {};
+    state.subs = {};
+    state.freePositions = {};
+    saveState();
+    els.btnStep2Next.disabled = false;
+    setStep(3);
+  });
+  els.formationGrid.appendChild(freeBtn);
+
+  let hasSelection = state.freeMode;
   list.forEach((fm) => {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -1042,6 +1150,8 @@ function renderFormationChoices() {
       els.formationGrid.querySelectorAll(".formation-btn").forEach((b) => b.classList.remove("is-selected"));
       btn.classList.add("is-selected");
       state.formationId = fm.id;
+      state.freeMode = false;
+      state.freePositions = {};
       pruneNamesToSlots(fm.slots);
       state.subs = {};
       saveState();
@@ -1103,7 +1213,36 @@ function createPitchMarkingsSvg() {
   return svg;
 }
 
+/** 직접 배치 모드: 인원 수에 따라 기본 슬롯 생성 */
+function buildFreeModeSlots(matchCount) {
+  const slots = [];
+  slots.push(mk("gk", "GK", 50, 90, true));
+  const outfield = matchCount - 1;
+  for (let i = 0; i < outfield; i++) {
+    const x = ((i + 1) / (outfield + 1)) * 88 + 6;
+    const y = 45;
+    slots.push(mk(`p${i + 1}`, "P", Math.round(x), y));
+  }
+  return slots;
+}
+
+/** 직접 배치 모드에서 현재 슬롯 목록 반환 (freePositions 오버라이드 반영) */
+function getFreeModeSlots() {
+  const base = buildFreeModeSlots(state.match || 11);
+  return base.map((s) => {
+    if (state.freePositions[s.id]) {
+      return { ...s, x: state.freePositions[s.id].x, y: state.freePositions[s.id].y };
+    }
+    return s;
+  });
+}
+
 function renderPitch() {
+  if (state.freeMode) {
+    renderFreePitch();
+    return;
+  }
+  els.pitch.classList.remove("pitch--free-drag", "is-drag-active");
   const fm = getSelectedFormation();
   if (!fm) return;
 
@@ -1163,7 +1302,7 @@ function renderPitch() {
 
     const abbr = document.createElement("span");
     abbr.className = "marker__abbr";
-    abbr.textContent = slot.label || "";
+    abbr.textContent = "";
 
     const input = document.createElement("input");
     input.type = "text";
@@ -1195,6 +1334,224 @@ function renderPitch() {
 
     els.pitch.appendChild(wrap);
   });
+}
+
+/** 직접 배치 모드 피치 렌더링 */
+function renderFreePitch() {
+  const matchCount = state.match || 11;
+  const label = `${matchCount} vs ${matchCount}`;
+  els.captureBadge.textContent = label;
+  els.captureFormation.textContent = "직접 배치";
+
+  els.pitch.classList.add("pitch--free-drag");
+  els.pitch.classList.remove("is-drag-active");
+  els.pitch.replaceChildren();
+  els.pitch.appendChild(createPitchMarkingsSvg());
+
+  const slots = getFreeModeSlots();
+  if (!state.names || typeof state.names !== "object") state.names = {};
+
+  slots.forEach((slot) => {
+    const wrap = document.createElement("div");
+    wrap.className = "position-node position-node--draggable";
+    wrap.style.left = `${slot.x}%`;
+    wrap.style.top = `${slot.y}%`;
+    wrap.dataset.slotId = slot.id;
+
+    const kind = slot.gk ? "gk" : "attacker";
+    const marker = document.createElement("div");
+    marker.className = `marker marker--${kind} marker--drag-handle`;
+    marker.setAttribute("role", "button");
+    marker.setAttribute("aria-label", slot.gk ? "골키퍼 위치 이동" : "선수 위치 이동");
+
+    const abbr = document.createElement("span");
+    abbr.className = "marker__abbr";
+    abbr.textContent = "";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "name-input";
+    input.dataset.slotId = slot.id;
+    input.placeholder = "이름";
+    input.maxLength = 14;
+    input.autocomplete = "off";
+    input.value = state.names[slot.id] || "";
+
+    const nameMirror = document.createElement("div");
+    nameMirror.className = "name-mirror";
+    nameMirror.setAttribute("aria-hidden", "true");
+
+    const sync = () => {
+      state.names[slot.id] = input.value;
+      nameMirror.textContent = input.value.trim();
+      saveState();
+    };
+
+    input.addEventListener("input", sync);
+    input.addEventListener("keydown", handleStep3InputKeydown);
+    nameMirror.textContent = (state.names[slot.id] || "").trim();
+
+    marker.appendChild(abbr);
+    wrap.appendChild(marker);
+    wrap.appendChild(input);
+    wrap.appendChild(nameMirror);
+
+    attachDragToNode(wrap, slot.id);
+
+    els.pitch.appendChild(wrap);
+  });
+}
+
+const coarsePointerMq = window.matchMedia("(hover: none) and (pointer: coarse)");
+
+function setPitchDragPageLock(on) {
+  if (!coarsePointerMq.matches) return;
+  document.body.classList.toggle("is-pitch-dragging", on);
+}
+
+/** 직접 배치 — 마커 드래그 (Pointer Events 우선, 구형 브라우저는 마우스·터치 폴백) */
+function attachDragToNode(wrap, slotId) {
+  const pitch = els.pitch;
+  const handle = wrap.querySelector(".marker--drag-handle");
+  if (!handle) return;
+
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+  let activePointerId = null;
+
+  function onDragStart(clientX, clientY) {
+    dragging = true;
+    startX = clientX;
+    startY = clientY;
+    startLeft = parseFloat(wrap.style.left);
+    startTop = parseFloat(wrap.style.top);
+    wrap.classList.add("is-dragging");
+    pitch.classList.add("is-drag-active");
+    setPitchDragPageLock(true);
+    const input = wrap.querySelector("input.name-input");
+    if (input && document.activeElement === input) input.blur();
+  }
+
+  function onDragMove(clientX, clientY) {
+    if (!dragging) return;
+    const rect = pitch.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const dx = ((clientX - startX) / rect.width) * 100;
+    const dy = ((clientY - startY) / rect.height) * 100;
+    const newLeft = Math.min(98, Math.max(2, startLeft + dx));
+    const newTop = Math.min(97, Math.max(3, startTop + dy));
+    wrap.style.left = `${newLeft}%`;
+    wrap.style.top = `${newTop}%`;
+  }
+
+  function onDragEnd() {
+    if (!dragging) return;
+    dragging = false;
+    activePointerId = null;
+    wrap.classList.remove("is-dragging");
+    pitch.classList.remove("is-drag-active");
+    setPitchDragPageLock(false);
+    state.freePositions[slotId] = {
+      x: parseFloat(wrap.style.left),
+      y: parseFloat(wrap.style.top),
+    };
+    saveState();
+  }
+
+  if (window.PointerEvent) {
+    handle.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (e.button !== 0 && e.pointerType === "mouse") return;
+        if (dragging) return;
+        e.preventDefault();
+        activePointerId = e.pointerId;
+        try {
+          handle.setPointerCapture(e.pointerId);
+        } catch {
+          /* setPointerCapture 미지원 시에도 move/up은 동일 요소에서 처리 */
+        }
+        onDragStart(e.clientX, e.clientY);
+      },
+      { passive: false }
+    );
+
+    handle.addEventListener(
+      "pointermove",
+      (e) => {
+        if (!dragging || e.pointerId !== activePointerId) return;
+        e.preventDefault();
+        onDragMove(e.clientX, e.clientY);
+      },
+      { passive: false }
+    );
+
+    const finishPointer = (e) => {
+      if (!dragging || e.pointerId !== activePointerId) return;
+      if (handle.hasPointerCapture?.(e.pointerId)) {
+        try {
+          handle.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+      }
+      onDragEnd();
+    };
+
+    handle.addEventListener("pointerup", finishPointer);
+    handle.addEventListener("pointercancel", finishPointer);
+    handle.addEventListener("lostpointercapture", () => {
+      if (dragging) onDragEnd();
+    });
+    return;
+  }
+
+  /* Pointer Events 미지원 — 마우스 */
+  handle.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    onDragStart(e.clientX, e.clientY);
+
+    const onMove = (ev) => onDragMove(ev.clientX, ev.clientY);
+    const onUp = () => {
+      onDragEnd();
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  });
+
+  /* Pointer Events 미지원 — 터치 (스크롤·줌 방지) */
+  handle.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      onDragStart(t.clientX, t.clientY);
+
+      const onMove = (ev) => {
+        if (ev.cancelable) ev.preventDefault();
+        const touch = ev.touches[0];
+        if (!touch) return;
+        onDragMove(touch.clientX, touch.clientY);
+      };
+      const onEnd = () => {
+        onDragEnd();
+        document.removeEventListener("touchmove", onMove);
+        document.removeEventListener("touchend", onEnd);
+        document.removeEventListener("touchcancel", onEnd);
+      };
+      document.addEventListener("touchmove", onMove, { passive: false });
+      document.addEventListener("touchend", onEnd);
+      document.addEventListener("touchcancel", onEnd);
+    },
+    { passive: false }
+  );
 }
 
 function renderSubs() {
@@ -1243,9 +1600,16 @@ function renderSubs() {
 
 /** 위→아래 줄 순, 줄 안에서는 왼쪽→오른쪽 → 이어서 SUB 1~5 */
 function getStep3OrderedInputs() {
-  const fm = getSelectedFormation();
-  if (!fm || !els.pitch || !els.subsList) return [];
-  const sorted = [...fm.slots].sort((a, b) => {
+  if (!els.pitch || !els.subsList) return [];
+  let slots;
+  if (state.freeMode) {
+    slots = getFreeModeSlots();
+  } else {
+    const fm = getSelectedFormation();
+    if (!fm) return [];
+    slots = fm.slots;
+  }
+  const sorted = [...slots].sort((a, b) => {
     if (a.y !== b.y) return a.y - b.y;
     return a.x - b.x;
   });
@@ -1300,20 +1664,6 @@ function isIOSDevice() {
   return /iPad|iPhone|iPod/i.test(navigator.userAgent || "");
 }
 
-async function tryShareImage(blob, fileName) {
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
-  try {
-    const file = new File([blob], fileName, { type: blob.type || "image/png" });
-    if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: "squad-maker" });
-      return true;
-    }
-  } catch {
-    return false;
-  }
-  return false;
-}
-
 function canvasToBlob(canvas, mimeType, quality) {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), mimeType, quality);
@@ -1360,6 +1710,14 @@ if (els.brandHome) {
   els.brandHome.addEventListener("click", () => setStep(1));
 }
 
+els.stepIndicators.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const target = Number(btn.dataset.stepIndicator);
+    if (!canNavigateToStep(target) || target === state.step) return;
+    setStep(target);
+  });
+});
+
 function goFromStep1ToStep2() {
   if (!state.match) return;
   setStep(2);
@@ -1379,6 +1737,8 @@ els.choiceCards.forEach((card) => {
     card.classList.add("is-selected");
     state.match = m;
     state.formationId = null;
+    state.freeMode = false;
+    state.freePositions = {};
     state.names = {};
     state.subs = {};
     saveState();
@@ -1392,7 +1752,7 @@ els.btnStep1Next.addEventListener("click", () => goFromStep1ToStep2());
 els.btnStep2Back.addEventListener("click", () => setStep(1));
 
 els.btnStep2Next.addEventListener("click", () => {
-  if (!getSelectedFormation()) return;
+  if (!state.freeMode && !getSelectedFormation()) return;
   setStep(3);
 });
 
@@ -1406,6 +1766,148 @@ els.btnRestart.addEventListener("click", () => {
   els.btnStep1Next.disabled = true;
   setStep(1);
 });
+
+/** 교체 명단에 이름이 하나라도 있는지 (DOM + state — 모바일 IME·자동완성 대비) */
+function hasAnySubNames(subValues) {
+  if (subValues && typeof subValues === "object") {
+    if (Object.values(subValues).some((v) => String(v).trim())) return true;
+  }
+  if (state.subs && typeof state.subs === "object") {
+    if (Object.values(state.subs).some((v) => String(v).trim())) return true;
+  }
+  if (!els.subsList) return false;
+  return [...els.subsList.querySelectorAll("input.sub-input")].some((inp) => inp.value.trim());
+}
+
+/** SUB 미입력 저장 시 — 실제 DOM·클론 모두에서 패널 제거 (모바일 html2canvas 여백 방지) */
+let subsPanelExportRestore = null;
+
+function hideSubsPanelForExport() {
+  const subsPanel = els.capture?.querySelector(".subs.subs--side");
+  const lineup = els.capture?.querySelector(".capture-lineup");
+  if (!subsPanel) return;
+
+  subsPanelExportRestore = {
+    hidden: subsPanel.hidden,
+    display: subsPanel.style.display,
+    height: subsPanel.style.height,
+    margin: subsPanel.style.margin,
+    padding: subsPanel.style.padding,
+    border: subsPanel.style.border,
+    ariaHidden: subsPanel.getAttribute("aria-hidden"),
+    lineupGap: lineup?.style.gap ?? "",
+    lineupWidth: lineup?.style.width ?? "",
+    lineupMargin: lineup?.style.margin ?? "",
+    lineupMaxWidth: lineup?.style.maxWidth ?? "",
+  };
+
+  subsPanel.hidden = true;
+  subsPanel.setAttribute("aria-hidden", "true");
+  subsPanel.style.display = "none";
+  subsPanel.style.height = "0";
+  subsPanel.style.margin = "0";
+  subsPanel.style.padding = "0";
+  subsPanel.style.border = "none";
+  subsPanel.style.overflow = "hidden";
+
+  if (lineup) {
+    lineup.style.gap = "0";
+    lineup.style.width = "100%";
+    lineup.style.margin = "0";
+    lineup.style.maxWidth = "100%";
+  }
+  els.capture.classList.add("capture--no-subs");
+}
+
+function restoreSubsPanelAfterExport() {
+  const subsPanel = els.capture?.querySelector(".subs.subs--side");
+  const lineup = els.capture?.querySelector(".capture-lineup");
+  els.capture?.classList.remove("capture--no-subs");
+
+  if (!subsPanel || !subsPanelExportRestore) {
+    subsPanelExportRestore = null;
+    return;
+  }
+
+  const r = subsPanelExportRestore;
+  subsPanel.hidden = r.hidden;
+  subsPanel.style.display = r.display;
+  subsPanel.style.height = r.height;
+  subsPanel.style.margin = r.margin;
+  subsPanel.style.padding = r.padding;
+  subsPanel.style.border = r.border;
+  if (r.ariaHidden == null) subsPanel.removeAttribute("aria-hidden");
+  else subsPanel.setAttribute("aria-hidden", r.ariaHidden);
+
+  if (lineup) {
+    lineup.style.gap = r.lineupGap;
+    lineup.style.width = r.lineupWidth;
+    lineup.style.margin = r.lineupMargin;
+    lineup.style.maxWidth = r.lineupMaxWidth;
+  }
+  subsPanelExportRestore = null;
+}
+
+/** 클론·모바일 캡처 — 피치·라인업 너비를 저장용으로 고정 */
+function normalizeCaptureCloneLayout(root) {
+  if (!root) return;
+  root.style.width = "100%";
+  root.style.maxWidth = "100%";
+  root.style.boxSizing = "border-box";
+
+  const lineup = root.querySelector(".capture-lineup");
+  if (lineup) {
+    lineup.style.width = "100%";
+    lineup.style.margin = "0";
+    lineup.style.maxWidth = "100%";
+    lineup.style.boxSizing = "border-box";
+  }
+  const pitch = root.querySelector(".pitch");
+  if (pitch) {
+    pitch.style.maxHeight = "none";
+    pitch.style.width = "100%";
+  }
+  const pitchCol = root.querySelector(".pitch-column");
+  if (pitchCol) {
+    pitchCol.style.width = "100%";
+    pitchCol.style.minWidth = "0";
+  }
+}
+
+/** 클론 문서에서 SUB 패널 완전 제거 */
+function stripSubsFromCaptureClone(root) {
+  if (!root) return;
+  root.classList.add("capture--no-subs");
+  const subsPanel = root.querySelector(".subs.subs--side");
+  subsPanel?.remove();
+  const lineup = root.querySelector(".capture-lineup");
+  if (lineup) {
+    lineup.style.gap = "0";
+    lineup.style.rowGap = "0";
+    lineup.style.columnGap = "0";
+  }
+  normalizeCaptureCloneLayout(root);
+}
+
+function waitAnimationFrames(count = 2) {
+  return new Promise((resolve) => {
+    const step = () => {
+      if (count <= 1) resolve();
+      else {
+        count -= 1;
+        requestAnimationFrame(step);
+      }
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+function getExportCanvasScale() {
+  const dpr = window.devicePixelRatio || 1;
+  const isCoarse = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  if (isCoarse) return Math.min(2, Math.max(1.5, dpr));
+  return Math.min(2.5, Math.max(2, dpr));
+}
 
 /** 이미지 저장 직전 — 미러 텍스트를 입력값과 동기화 */
 function syncExportMirrors() {
@@ -1423,6 +1925,8 @@ function syncExportMirrors() {
 
 /* Image export */
 async function saveImageFile() {
+  if (!els.capture || !els.btnSaveImage || !els.exportFormat) return;
+
   if (typeof html2canvas !== "function") {
     alert("이미지 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.");
     return;
@@ -1432,6 +1936,11 @@ async function saveImageFile() {
   els.btnSaveImage.disabled = true;
   syncExportMirrors();
   els.capture.classList.add("is-exporting");
+  try {
+    els.capture.scrollIntoView({ block: "center", behavior: "instant" });
+  } catch {
+    els.capture.scrollIntoView({ block: "center" });
+  }
 
   // html2canvas clone에서 input의 실시간 value가 유실될 수 있어, 캡처 직전 값을 별도로 스냅샷.
   const nameSnapshot = {};
@@ -1444,6 +1953,10 @@ async function saveImageFile() {
     if (!inp.dataset.subKey) return;
     subSnapshot[inp.dataset.subKey] = inp.value.trim();
   });
+  const hideSubsForExport = !hasAnySubNames(subSnapshot);
+  if (hideSubsForExport) {
+    hideSubsPanelForExport();
+  }
 
   // 배포 환경에서 캡처 직전에 웹폰트가 늦게 적용되는 경우를 대비.
   if (document.fonts?.load) {
@@ -1457,17 +1970,22 @@ async function saveImageFile() {
     }
   }
   if (document.fonts?.ready) await document.fonts.ready;
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await waitAnimationFrames(2);
+  /* 모바일: SUB 숨김·레이아웃 반영 후 캡처 */
+  if (hideSubsForExport) {
+    void els.capture.offsetHeight;
+    await waitAnimationFrames(2);
+  }
 
   try {
     const renderWith = (overrides = {}) =>
       html2canvas(els.capture, {
-        scale: Math.min(2.5, Math.max(2, window.devicePixelRatio || 2)),
+        scale: getExportCanvasScale(),
         useCORS: true,
         // 캔버스 오염 리소스가 끼어 export가 막히는 것을 방지.
         allowTaint: false,
         /** 카드 하단 톤과 맞춤 — 반투명 배경과 합치면 테두리가 탁해짐 */
-        backgroundColor: "#131b22",
+        backgroundColor: "#f3f2ef",
         logging: false,
         removeContainer: false,
         imageTimeout: 15000,
@@ -1475,6 +1993,7 @@ async function saveImageFile() {
           const root = doc.getElementById("capture");
           if (!root) return;
           root.classList.add("is-exporting");
+          normalizeCaptureCloneLayout(root);
 
           // 복제 DOM에서도 입력창/미러 상태를 강제로 맞춰 캡처 시점 레이스를 방지.
           root.querySelectorAll("input.name-input").forEach((inp) => {
@@ -1488,17 +2007,21 @@ async function saveImageFile() {
             }
             inp.style.display = "none";
           });
-          root.querySelectorAll("input.sub-input").forEach((inp) => {
-            const row = inp.closest(".sub-row");
-            const mir = row?.querySelector(".sub-mirror");
-            if (mir) {
-              const subKey = inp.dataset.subKey || "";
-              mir.textContent = subSnapshot[subKey] ?? "";
-              mir.style.display = "flex";
-              mir.style.opacity = "1";
-            }
-            inp.style.display = "none";
-          });
+          if (hideSubsForExport) {
+            stripSubsFromCaptureClone(root);
+          } else {
+            root.querySelectorAll("input.sub-input").forEach((inp) => {
+              const row = inp.closest(".sub-row");
+              const mir = row?.querySelector(".sub-mirror");
+              if (mir) {
+                const subKey = inp.dataset.subKey || "";
+                mir.textContent = subSnapshot[subKey] ?? "";
+                mir.style.display = "flex";
+                mir.style.opacity = "1";
+              }
+              inp.style.display = "none";
+            });
+          }
 
           const setExact = (el) => {
             if (el.nodeType !== Node.ELEMENT_NODE) return;
@@ -1535,8 +2058,6 @@ async function saveImageFile() {
     let objectUrlOrDataUrl = "";
     const blob = await canvasToBlob(canvas, mimeType, quality);
     if (blob) {
-      const shared = await tryShareImage(blob, fname);
-      if (shared) return;
       objectUrlOrDataUrl = triggerDownloadFromBlob(blob, fname);
     } else {
       // 일부 브라우저에서 toBlob이 null을 반환하므로 dataURL 경로로 재시도.
@@ -1565,11 +2086,12 @@ async function saveImageFile() {
     alert(`이미지 저장 실패: ${getErrorMessage(e)}`);
   } finally {
     els.capture.classList.remove("is-exporting");
+    restoreSubsPanelAfterExport();
     els.btnSaveImage.disabled = false;
   }
 }
 
-els.btnSaveImage.addEventListener("click", saveImageFile);
+if (els.btnSaveImage) els.btnSaveImage.addEventListener("click", saveImageFile);
 
 /** 페이지 로드 시 항상 1단계부터 (단계 번호는 저장하지 않음) */
 function hydrate() {
@@ -1594,6 +2116,16 @@ function hydrate() {
   });
 
   setStep(1);
+  updateStepIndicatorsNav();
 }
 
-hydrate();
+function boot() {
+  if (!assertRequiredElements()) return;
+  hydrate();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", boot);
+} else {
+  boot();
+}
