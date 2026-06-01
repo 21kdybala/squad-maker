@@ -1918,19 +1918,30 @@ function measurePitchWidth(pitch) {
   return Math.round(rect.width || pitch.offsetWidth || 0);
 }
 
+/** 모바일·태블릿 터치 환경 — PC 저장 크기는 유지, 모바일만 살짝 축소 */
+function isMobileMarkerScale() {
+  return (
+    window.matchMedia("(max-width: 720px)").matches ||
+    window.matchMedia("(hover: none) and (pointer: coarse)").matches
+  );
+}
+
 function applyExportMarkerScale(root, noSubs) {
   if (!root) return;
   const pitch = root.querySelector(".pitch");
   const pitchW = measurePitchWidth(pitch);
   if (!pitchW) return;
 
-  const ratio = noSubs ? 0.165 : 0.145;
-  const nodeMin = noSubs ? 58 : 52;
-  const nodeMax = noSubs ? 104 : 92;
-  const nodeW = Math.round(Math.min(nodeMax, Math.max(nodeMin, pitchW * ratio)));
-  const markerW = Math.round(nodeW * 0.84);
-  const namePx = Math.round(Math.max(12, Math.min(18, nodeW * 0.24)));
-  const abbrPx = Math.round(Math.max(10, Math.min(15, nodeW * 0.21)));
+  const mobile = isMobileMarkerScale();
+  const fineTune = mobile ? 0.93 : 1;
+
+  const ratio = (noSubs ? 0.165 : 0.145) * fineTune;
+  const nodeMin = Math.round((noSubs ? 58 : 52) * fineTune);
+  const nodeMax = Math.round((noSubs ? 104 : 92) * fineTune);
+  let nodeW = Math.round(Math.min(nodeMax, Math.max(nodeMin, pitchW * ratio)));
+  let markerW = Math.round(nodeW * 0.84);
+  let namePx = Math.round(Math.max(12, Math.min(18, nodeW * 0.24)));
+  let abbrPx = Math.round(Math.max(10, Math.min(15, nodeW * 0.21)));
   const nameMinH = Math.round(namePx * 1.65);
 
   const touched = [];

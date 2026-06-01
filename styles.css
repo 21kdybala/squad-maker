@@ -771,31 +771,54 @@ body.is-pitch-dragging {
     max-height: none;
   }
 
+  .position-node {
+    width: clamp(47px, 11.2%, 63px);
+  }
+
+  .marker {
+    max-width: 44px;
+  }
+
+  .marker__abbr {
+    font-size: 0.64rem;
+  }
+
+  .name-input,
+  .name-mirror {
+    font-size: 0.8rem;
+    min-height: 1.48rem;
+  }
+
   .capture:not(.is-exporting) .position-node {
-    width: clamp(46px, 13.2%, 64px);
+    width: clamp(44px, 12.4%, 60px);
   }
 
   .capture:not(.is-exporting) .marker {
-    width: 81%;
-    max-width: 46px;
+    width: 79%;
+    max-width: 42px;
   }
 
   .capture:not(.is-exporting) .marker__abbr {
-    font-size: 0.73rem;
+    font-size: 0.7rem;
   }
 
   .capture:not(.is-exporting) .name-input,
   .capture:not(.is-exporting) .name-mirror {
-    font-size: 0.86rem;
-    min-height: 1.41rem;
+    font-size: 0.8rem;
+    min-height: 1.38rem;
   }
 
   .capture.is-exporting .position-node {
-    width: clamp(46px, 12.1%, 68px);
+    width: clamp(44px, 11.2%, 64px);
+  }
+
+  .capture.is-exporting.capture--no-subs .position-node {
+    width: clamp(46px, 12.8%, 68px);
   }
 
   .capture.is-exporting .marker {
-    max-width: 46px;
+    max-width: none;
+    min-width: 40px;
   }
 }
 
