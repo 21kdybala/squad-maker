@@ -1249,6 +1249,9 @@ function renderPitch() {
   const label = `${state.match} vs ${state.match}`;
   els.captureBadge.textContent = label;
   els.captureFormation.textContent = fm.title;
+  if (els.capture) {
+    els.capture.dataset.mobileTightLine = MOBILE_TIGHT_FIVE_LINE_FORMATIONS.has(fm.id) ? "1" : "";
+  }
 
   els.pitch.replaceChildren();
   els.pitch.appendChild(createPitchMarkingsSvg());
@@ -1343,6 +1346,7 @@ function renderFreePitch() {
   const label = `${matchCount} vs ${matchCount}`;
   els.captureBadge.textContent = label;
   els.captureFormation.textContent = "직접 배치";
+  if (els.capture) els.capture.dataset.mobileTightLine = "";
 
   els.pitch.classList.add("pitch--free-drag");
   els.pitch.classList.remove("is-drag-active");
@@ -1943,32 +1947,34 @@ function isMobileMarkerScale() {
 /** 5명 한 줄이 잘리기 쉬운 포메이션 — 모바일에서만 간격 축소 */
 const MOBILE_TIGHT_FIVE_LINE_FORMATIONS = new Set(["532", "5311", "523", "5221", "3511"]);
 
-/** 모바일 — 지정 포메이션의 5명 라인만 좌우 간격을 안쪽으로 (표시·저장 공통) */
+/** y가 비슷해도 줄이 나뉘는 5백·5미드 — 압축할 슬롯 id (좌→우 순서) */
+const MOBILE_TIGHT_LINE_SLOT_IDS = {
+  "532": ["lwb", "cb1", "cb2", "cb3", "rwb"],
+  "5311": ["lwb", "cb1", "cb2", "cb3", "rwb"],
+  "523": ["lwb", "cb1", "cb2", "cb3", "rwb"],
+  "5221": ["lwb", "cb1", "cb2", "cb3", "rwb"],
+  "3511": ["lwb", "cm1", "cm2", "cm3", "rwb"],
+};
+
+/** 모바일 — 지정 포메이션 5명 라인 x 재배치 (translate -50% 여백 포함) */
 function applyMobileLineSpacing(slots, formationId = state.formationId) {
   if (!isMobileMarkerScale() || !slots?.length) return slots;
-  if (!formationId || !MOBILE_TIGHT_FIVE_LINE_FORMATIONS.has(formationId)) return slots;
+
+  const orderedIds = MOBILE_TIGHT_LINE_SLOT_IDS[formationId];
+  if (!orderedIds) return slots;
 
   const result = slots.map((s) => ({ ...s }));
-  const yTolerance = 4;
-  const byLine = new Map();
+  const byId = new Map(result.map((s) => [s.id, s]));
+  const line = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+  if (line.length < 5) return result;
 
-  result.forEach((slot) => {
-    const yKey = Math.round(slot.y / yTolerance) * yTolerance;
-    if (!byLine.has(yKey)) byLine.set(yKey, []);
-    byLine.get(yKey).push(slot);
-  });
-
-  const inset = 16;
+  const inset = 21;
   const maxX = 100 - inset;
+  const span = maxX - inset;
 
-  for (const line of byLine.values()) {
-    if (line.length !== 5) continue;
-
-    line.sort((a, b) => a.x - b.x);
-    line.forEach((slot, i) => {
-      slot.x = Math.round((inset + ((maxX - inset) * i) / 4) * 10) / 10;
-    });
-  }
+  line.forEach((slot, i) => {
+    slot.x = Math.round((inset + (span * i) / (line.length - 1)) * 10) / 10;
+  });
 
   return result;
 }

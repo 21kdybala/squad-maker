@@ -973,6 +973,10 @@ body.is-pitch-dragging {
     box-sizing: border-box;
   }
 
+  .capture[data-mobile-tight-line="1"] .pitch-wrap--wide {
+    padding: 0 12px;
+  }
+
   .pitch {
     width: 100%;
     max-height: none;
