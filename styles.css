@@ -657,7 +657,9 @@ body.is-pitch-dragging {
   gap: 0.45rem;
   width: calc(100% - 1.7rem);
   min-width: 0;
+  max-width: 100%;
   margin: 0 0.85rem;
+  box-sizing: border-box;
   position: relative;
   z-index: 1;
   background: var(--surface);
@@ -731,9 +733,23 @@ body.is-pitch-dragging {
     flex-wrap: wrap;
   }
 
+  .capture-wrap {
+    overflow: visible;
+  }
+
+  .capture:not(.is-exporting) {
+    overflow: visible;
+  }
+
   .capture-lineup {
     flex-direction: column;
     align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0.55rem;
+    box-sizing: border-box;
+    overflow: visible;
   }
 
   .capture.capture--no-subs .capture-lineup,
@@ -749,26 +765,55 @@ body.is-pitch-dragging {
   }
 
   .subs.subs--side {
+    flex: 1 1 auto;
     width: 100%;
-    max-width: none;
+    max-width: 100%;
+    min-width: 0;
     border-left: none;
     border-top: 1px solid var(--border);
-    padding-left: 0;
-    padding-top: 0.85rem;
-    margin-top: 0.35rem;
+    padding: 0.75rem 0.35rem 0;
+    margin-top: 0.5rem;
+    box-sizing: border-box;
+  }
+
+  .subs__head {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .subs__list {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sub-row {
+    width: 100%;
+    min-width: 0;
+    gap: 0.35rem;
+  }
+
+  .sub-input,
+  .sub-mirror {
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .pitch-column {
     width: 100%;
+    min-width: 0;
+    margin-bottom: 0.15rem;
   }
 
   .pitch-wrap--wide {
     width: 100%;
+    padding: 0 6px;
+    box-sizing: border-box;
   }
 
   .pitch {
     width: 100%;
     max-height: none;
+    overflow: visible;
   }
 
   .position-node {
@@ -1360,13 +1405,22 @@ body.is-pitch-dragging {
   }
 
   .capture-lineup {
-    width: calc(100% - 1.1rem);
-    margin: 0 0.55rem;
-    padding: 0.5rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.5rem 0.4rem;
+  }
+
+  .subs.subs--side {
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
   }
 
   .capture:not(.is-exporting) .pitch {
-    max-height: min(72vh, 720px);
+    max-height: min(68vh, 680px);
+  }
+
+  .pitch-wrap--wide {
+    padding: 0 5px;
   }
 
   .formation-btn {
