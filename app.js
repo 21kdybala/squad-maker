@@ -1934,14 +1934,30 @@ function isMobileMarkerScale() {
   );
 }
 
+/** 5백 등 측면 선수가 많을 때 저장·화면에서 좌우 잘림 방지 */
+function getMobileMarkerFineTune(root) {
+  if (!isMobileMarkerScale()) return 1;
+  const pitch = root?.querySelector(".pitch");
+  if (!pitch) return 0.88;
+
+  let edgeCount = 0;
+  pitch.querySelectorAll(".position-node").forEach((node) => {
+    const left = parseFloat(node.style.left);
+    if (!Number.isNaN(left) && (left <= 12 || left >= 88)) edgeCount += 1;
+  });
+
+  if (edgeCount >= 4) return 0.82;
+  if (edgeCount >= 2) return 0.85;
+  return 0.88;
+}
+
 function applyExportMarkerScale(root, noSubs) {
   if (!root) return;
   const pitch = root.querySelector(".pitch");
   const pitchW = measurePitchWidth(pitch);
   if (!pitchW) return;
 
-  const mobile = isMobileMarkerScale();
-  const fineTune = mobile ? 0.93 : 1;
+  const fineTune = getMobileMarkerFineTune(root);
 
   const ratio = (noSubs ? 0.165 : 0.145) * fineTune;
   const nodeMin = Math.round((noSubs ? 58 : 52) * fineTune);

@@ -969,7 +969,7 @@ body.is-pitch-dragging {
 
   .pitch-wrap--wide {
     width: 100%;
-    padding: 0 6px;
+    padding: 0 10px;
     box-sizing: border-box;
   }
 
@@ -980,53 +980,66 @@ body.is-pitch-dragging {
   }
 
   .position-node {
-    width: clamp(47px, 11.2%, 63px);
+    width: clamp(40px, 10%, 54px);
   }
 
   .marker {
-    max-width: 44px;
+    width: 76%;
+    max-width: 38px;
   }
 
   .marker__abbr {
-    font-size: 0.64rem;
+    font-size: 0.6rem;
   }
 
   .name-input,
   .name-mirror {
-    font-size: 0.8rem;
-    min-height: 1.48rem;
+    font-size: 0.72rem;
+    min-height: 1.26rem;
+    padding: 0.14rem 0.1rem;
   }
 
   .capture:not(.is-exporting) .position-node {
-    width: clamp(44px, 12.4%, 60px);
+    width: clamp(38px, 10.2%, 52px);
   }
 
   .capture:not(.is-exporting) .marker {
-    width: 79%;
-    max-width: 42px;
+    width: 76%;
+    max-width: 36px;
   }
 
   .capture:not(.is-exporting) .marker__abbr {
-    font-size: 0.7rem;
+    font-size: 0.62rem;
   }
 
   .capture:not(.is-exporting) .name-input,
   .capture:not(.is-exporting) .name-mirror {
-    font-size: 0.8rem;
-    min-height: 1.38rem;
+    font-size: 0.72rem;
+    min-height: 1.22rem;
+    padding: 0.14rem 0.1rem;
   }
 
   .capture.is-exporting .position-node {
-    width: clamp(44px, 11.2%, 64px);
+    width: clamp(38px, 10.2%, 54px);
   }
 
   .capture.is-exporting.capture--no-subs .position-node {
-    width: clamp(46px, 12.8%, 68px);
+    width: clamp(40px, 11%, 58px);
   }
 
   .capture.is-exporting .marker {
     max-width: none;
-    min-width: 40px;
+    min-width: 34px;
+  }
+
+  .capture.is-exporting .name-mirror {
+    font-size: 0.9rem;
+    min-height: 1.45rem;
+    padding: 0.16rem 0.1rem;
+  }
+
+  .capture.is-exporting .marker__abbr {
+    font-size: 0.72rem;
   }
 }
 
