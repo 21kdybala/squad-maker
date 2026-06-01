@@ -1254,7 +1254,7 @@ function renderPitch() {
   els.pitch.appendChild(createPitchMarkingsSvg());
   pruneNamesToSlots(fm.slots);
 
-  const displaySlots = applyMobileLineSpacing(fm.slots);
+  const displaySlots = applyMobileLineSpacing(fm.slots, fm.id);
   displaySlots.forEach((slot) => {
     const wrap = document.createElement("div");
     wrap.className = "position-node";
@@ -1349,7 +1349,7 @@ function renderFreePitch() {
   els.pitch.replaceChildren();
   els.pitch.appendChild(createPitchMarkingsSvg());
 
-  const slots = applyMobileLineSpacing(getFreeModeSlots());
+  const slots = getFreeModeSlots();
   if (!state.names || typeof state.names !== "object") state.names = {};
 
   slots.forEach((slot) => {
@@ -1940,9 +1940,13 @@ function isMobileMarkerScale() {
   );
 }
 
-/** 모바일 — 같은 라인(4~5명) 좌우 간격을 안쪽으로 모아 양끝 잘림 방지 (표시·저장 공통) */
-function applyMobileLineSpacing(slots) {
+/** 5명 한 줄이 잘리기 쉬운 포메이션 — 모바일에서만 간격 축소 */
+const MOBILE_TIGHT_FIVE_LINE_FORMATIONS = new Set(["532", "5311", "523", "5221", "3511"]);
+
+/** 모바일 — 지정 포메이션의 5명 라인만 좌우 간격을 안쪽으로 (표시·저장 공통) */
+function applyMobileLineSpacing(slots, formationId = state.formationId) {
   if (!isMobileMarkerScale() || !slots?.length) return slots;
+  if (!formationId || !MOBILE_TIGHT_FIVE_LINE_FORMATIONS.has(formationId)) return slots;
 
   const result = slots.map((s) => ({ ...s }));
   const yTolerance = 4;
@@ -1954,17 +1958,15 @@ function applyMobileLineSpacing(slots) {
     byLine.get(yKey).push(slot);
   });
 
+  const inset = 16;
+  const maxX = 100 - inset;
+
   for (const line of byLine.values()) {
-    if (line.length < 4) continue;
+    if (line.length !== 5) continue;
 
     line.sort((a, b) => a.x - b.x);
-    const n = line.length;
-    const inset = n >= 5 ? 13 : 11;
-    const maxX = 100 - inset;
-
     line.forEach((slot, i) => {
-      slot.x =
-        n === 1 ? slot.x : Math.round((inset + ((maxX - inset) * i) / (n - 1)) * 10) / 10;
+      slot.x = Math.round((inset + ((maxX - inset) * i) / 4) * 10) / 10;
     });
   }
 
