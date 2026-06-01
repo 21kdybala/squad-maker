@@ -765,10 +765,14 @@ body.is-pitch-dragging {
   }
 
   .subs.subs--side {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    flex-shrink: 0;
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    height: auto;
+    max-height: none;
+    overflow: visible;
     border-left: none;
     border-top: 1px solid var(--border);
     padding: 0.75rem 0.35rem 0;
@@ -784,6 +788,14 @@ body.is-pitch-dragging {
   .subs__list {
     width: 100%;
     min-width: 0;
+    overflow: visible;
+  }
+
+  /* SUB 5칸이 잘리지 않도록 피치 높이 상한 (저장 후·일반 화면) */
+  .capture:not(.capture--no-subs):not(.is-exporting)
+    .capture-lineup:has(.subs.subs--side)
+    .pitch {
+    max-height: min(52vh, 520px);
   }
 
   .sub-row {
@@ -1415,7 +1427,8 @@ body.is-pitch-dragging {
     padding-right: 0.3rem;
   }
 
-  .capture:not(.is-exporting) .pitch {
+  .capture:not(.is-exporting).capture--no-subs .pitch,
+  .capture-lineup:not(:has(.subs.subs--side)) .pitch {
     max-height: min(68vh, 680px);
   }
 

@@ -1794,11 +1794,17 @@ function hideSubsPanelForExport() {
     margin: subsPanel.style.margin,
     padding: subsPanel.style.padding,
     border: subsPanel.style.border,
+    overflow: subsPanel.style.overflow,
+    visibility: subsPanel.style.visibility,
+    minHeight: subsPanel.style.minHeight,
+    maxHeight: subsPanel.style.maxHeight,
     ariaHidden: subsPanel.getAttribute("aria-hidden"),
     lineupGap: lineup?.style.gap ?? "",
     lineupWidth: lineup?.style.width ?? "",
     lineupMargin: lineup?.style.margin ?? "",
     lineupMaxWidth: lineup?.style.maxWidth ?? "",
+    lineupHeight: lineup?.style.height ?? "",
+    lineupOverflow: lineup?.style.overflow ?? "",
   };
 
   subsPanel.hidden = true;
@@ -1824,27 +1830,29 @@ function restoreSubsPanelAfterExport() {
   const lineup = els.capture?.querySelector(".capture-lineup");
   els.capture?.classList.remove("capture--no-subs");
 
-  if (!subsPanel || !subsPanelExportRestore) {
-    subsPanelExportRestore = null;
-    return;
+  /** 저장 과정에서 남은 인라인 스타일 제거 (모바일 SUB 2칸만 보이는 현상 방지) */
+  if (subsPanel) {
+    subsPanel.hidden = false;
+    subsPanel.removeAttribute("aria-hidden");
+    [
+      "display",
+      "height",
+      "margin",
+      "padding",
+      "border",
+      "overflow",
+      "visibility",
+      "min-height",
+      "max-height",
+    ].forEach((prop) => subsPanel.style.removeProperty(prop));
   }
-
-  const r = subsPanelExportRestore;
-  subsPanel.hidden = r.hidden;
-  subsPanel.style.display = r.display;
-  subsPanel.style.height = r.height;
-  subsPanel.style.margin = r.margin;
-  subsPanel.style.padding = r.padding;
-  subsPanel.style.border = r.border;
-  if (r.ariaHidden == null) subsPanel.removeAttribute("aria-hidden");
-  else subsPanel.setAttribute("aria-hidden", r.ariaHidden);
 
   if (lineup) {
-    lineup.style.gap = r.lineupGap;
-    lineup.style.width = r.lineupWidth;
-    lineup.style.margin = r.lineupMargin;
-    lineup.style.maxWidth = r.lineupMaxWidth;
+    ["gap", "width", "margin", "max-width", "height", "overflow"].forEach((prop) =>
+      lineup.style.removeProperty(prop)
+    );
   }
+
   subsPanelExportRestore = null;
 }
 
