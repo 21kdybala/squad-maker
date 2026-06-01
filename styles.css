@@ -1047,6 +1047,12 @@ body.is-pitch-dragging {
   }
 }
 
+@media (min-width: 721px) {
+  .capture[data-mobile-tight-line="1"] .pitch-wrap--wide {
+    padding: 0 8px;
+  }
+}
+
 .capture {
   position: relative;
   background: var(--surface);

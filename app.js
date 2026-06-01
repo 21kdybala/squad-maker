@@ -1257,7 +1257,7 @@ function renderPitch() {
   els.pitch.appendChild(createPitchMarkingsSvg());
   pruneNamesToSlots(fm.slots);
 
-  const displaySlots = applyMobileLineSpacing(fm.slots, fm.id);
+  const displaySlots = applyTightFiveLineSpacing(fm.slots, fm.id);
   displaySlots.forEach((slot) => {
     const wrap = document.createElement("div");
     wrap.className = "position-node";
@@ -1956,9 +1956,9 @@ const MOBILE_TIGHT_LINE_SLOT_IDS = {
   "3511": ["lwb", "cm1", "cm2", "cm3", "rwb"],
 };
 
-/** 모바일 — 지정 포메이션 5명 라인 x 재배치 (translate -50% 여백 포함) */
-function applyMobileLineSpacing(slots, formationId = state.formationId) {
-  if (!isMobileMarkerScale() || !slots?.length) return slots;
+/** 지정 포메이션 5명 라인 x 재배치 — 모바일·PC·저장 공통 (translate -50% 여백) */
+function applyTightFiveLineSpacing(slots, formationId = state.formationId) {
+  if (!slots?.length) return slots;
 
   const orderedIds = MOBILE_TIGHT_LINE_SLOT_IDS[formationId];
   if (!orderedIds) return slots;
@@ -1969,15 +1969,18 @@ function applyMobileLineSpacing(slots, formationId = state.formationId) {
   if (line.length < 5) return result;
 
   const origXs = line.map((s) => s.x);
-  const inset = 18;
+  const mobile = isMobileMarkerScale();
+
+  const inset = mobile ? 18 : 14;
   const maxX = 100 - inset;
   const span = maxX - inset;
-  const safeMin = 13;
-  const safeMax = 87;
+  const safeMin = mobile ? 13 : 10;
+  const safeMax = mobile ? 87 : 90;
+  const tightWeight = mobile ? 0.32 : 0.18;
 
   line.forEach((slot, i) => {
     const tightX = inset + (span * i) / (line.length - 1);
-    let x = tightX * 0.32 + origXs[i] * 0.68;
+    let x = tightX * tightWeight + origXs[i] * (1 - tightWeight);
     x = Math.min(safeMax, Math.max(safeMin, x));
     slot.x = Math.round(x * 10) / 10;
   });
