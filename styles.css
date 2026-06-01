@@ -855,13 +855,22 @@ body.is-pitch-dragging {
 }
 
 .capture.is-exporting .position-node {
-  width: clamp(48px, 12.1%, 70px);
+  width: clamp(56px, 14.5%, 96px);
   max-width: calc(100% - 4px);
 }
 
+.capture.is-exporting.capture--no-subs .position-node {
+  width: clamp(60px, 16.5%, 104px);
+}
+
 .capture.is-exporting .marker {
-  width: 79%;
-  max-width: 48px;
+  width: 84%;
+  max-width: none;
+  min-width: 44px;
+}
+
+.capture.is-exporting.capture--no-subs .marker {
+  min-width: 48px;
 }
 
 .capture.is-exporting .name-mirror {
@@ -1127,9 +1136,9 @@ body.is-pitch-dragging {
 }
 
 .capture.is-exporting .name-mirror {
-  font-size: 0.97rem;
-  padding: 0.18rem 0.13rem;
-  min-height: 1.56rem;
+  font-size: 1.05rem;
+  padding: 0.2rem 0.14rem;
+  min-height: 1.7rem;
   border: 1px solid rgba(255, 255, 255, 0.28);
   /** 반투명은 html2canvas 합성 시 채도·대비가 떨어져 보임 → 불투명 단색 */
   background: #0f1419;
@@ -1139,7 +1148,7 @@ body.is-pitch-dragging {
 }
 
 .capture.is-exporting .marker__abbr {
-  font-size: 0.75rem;
+  font-size: 0.82rem;
 }
 
 /** 저장 시 inset 하이라이트가 캔버스에서 흐려 보일 수 있어 그림자만 유지 */

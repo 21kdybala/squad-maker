@@ -1909,6 +1909,112 @@ function getExportCanvasScale() {
   return Math.min(2.5, Math.max(2, dpr));
 }
 
+/** html2canvas는 %·clamp를 피치 대비로 잘 못 그림 → 저장 시 픽셀 크기 직접 지정 */
+let exportMarkerScaleRestore = null;
+
+function measurePitchWidth(pitch) {
+  if (!pitch) return 0;
+  const rect = pitch.getBoundingClientRect();
+  return Math.round(rect.width || pitch.offsetWidth || 0);
+}
+
+function applyExportMarkerScale(root, noSubs) {
+  if (!root) return;
+  const pitch = root.querySelector(".pitch");
+  const pitchW = measurePitchWidth(pitch);
+  if (!pitchW) return;
+
+  const ratio = noSubs ? 0.165 : 0.145;
+  const nodeMin = noSubs ? 58 : 52;
+  const nodeMax = noSubs ? 104 : 92;
+  const nodeW = Math.round(Math.min(nodeMax, Math.max(nodeMin, pitchW * ratio)));
+  const markerW = Math.round(nodeW * 0.84);
+  const namePx = Math.round(Math.max(12, Math.min(18, nodeW * 0.24)));
+  const abbrPx = Math.round(Math.max(10, Math.min(15, nodeW * 0.21)));
+  const nameMinH = Math.round(namePx * 1.65);
+
+  const touched = [];
+  root.querySelectorAll(".position-node").forEach((node) => {
+    const marker = node.querySelector(".marker");
+    const mir = node.querySelector(".name-mirror");
+    const abbr = node.querySelector(".marker__abbr");
+    const entry = {
+      node,
+      nodeWidth: node.style.width,
+      nodeMaxWidth: node.style.maxWidth,
+      marker,
+      markerWidth: marker?.style.width ?? "",
+      markerMaxWidth: marker?.style.maxWidth ?? "",
+      markerHeight: marker?.style.height ?? "",
+      mir,
+      mirFont: mir?.style.fontSize ?? "",
+      mirMinH: mir?.style.minHeight ?? "",
+      mirPad: mir?.style.padding ?? "",
+      abbr,
+      abbrFont: abbr?.style.fontSize ?? "",
+    };
+    touched.push(entry);
+
+    node.style.width = `${nodeW}px`;
+    node.style.maxWidth = `${nodeW}px`;
+    if (marker) {
+      marker.style.width = `${markerW}px`;
+      marker.style.maxWidth = `${markerW}px`;
+      marker.style.height = `${markerW}px`;
+    }
+    if (mir) {
+      mir.style.fontSize = `${namePx}px`;
+      mir.style.minHeight = `${nameMinH}px`;
+      mir.style.padding = `${Math.round(namePx * 0.2)}px ${Math.round(namePx * 0.14)}px`;
+    }
+    if (abbr) abbr.style.fontSize = `${abbrPx}px`;
+  });
+
+  if (root === els.capture) exportMarkerScaleRestore = touched;
+}
+
+function restoreExportMarkerScale(root) {
+  const list = root === els.capture ? exportMarkerScaleRestore : null;
+  if (!list?.length) {
+    if (root === els.capture) exportMarkerScaleRestore = null;
+    return;
+  }
+
+  list.forEach(
+    ({
+      node,
+      nodeWidth,
+      nodeMaxWidth,
+      marker,
+      markerWidth,
+      markerMaxWidth,
+      markerHeight,
+      mir,
+      mirFont,
+      mirMinH,
+      mirPad,
+      abbr,
+      abbrFont,
+    }) => {
+      node.style.width = nodeWidth;
+      node.style.maxWidth = nodeMaxWidth;
+      if (marker) {
+        marker.style.width = markerWidth;
+        marker.style.maxWidth = markerMaxWidth;
+        marker.style.height = markerHeight;
+      }
+      if (mir) {
+        mir.style.fontSize = mirFont;
+        mir.style.minHeight = mirMinH;
+        mir.style.padding = mirPad;
+      }
+      if (abbr) abbr.style.fontSize = abbrFont;
+    }
+  );
+
+  if (root === els.capture) exportMarkerScaleRestore = null;
+}
+
 /** 이미지 저장 직전 — 미러 텍스트를 입력값과 동기화 */
 function syncExportMirrors() {
   els.capture.querySelectorAll("input.name-input").forEach((inp) => {
@@ -1977,6 +2083,8 @@ async function saveImageFile() {
     await waitAnimationFrames(2);
   }
 
+  applyExportMarkerScale(els.capture, hideSubsForExport);
+
   try {
     const renderWith = (overrides = {}) =>
       html2canvas(els.capture, {
@@ -2022,6 +2130,9 @@ async function saveImageFile() {
               inp.style.display = "none";
             });
           }
+
+          void root.offsetHeight;
+          applyExportMarkerScale(root, hideSubsForExport);
 
           const setExact = (el) => {
             if (el.nodeType !== Node.ELEMENT_NODE) return;
@@ -2085,6 +2196,7 @@ async function saveImageFile() {
     console.error(e);
     alert(`이미지 저장 실패: ${getErrorMessage(e)}`);
   } finally {
+    restoreExportMarkerScale(els.capture);
     els.capture.classList.remove("is-exporting");
     restoreSubsPanelAfterExport();
     els.btnSaveImage.disabled = false;
