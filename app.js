@@ -1254,7 +1254,8 @@ function renderPitch() {
   els.pitch.appendChild(createPitchMarkingsSvg());
   pruneNamesToSlots(fm.slots);
 
-  fm.slots.forEach((slot) => {
+  const displaySlots = applyMobileLineSpacing(fm.slots);
+  displaySlots.forEach((slot) => {
     const wrap = document.createElement("div");
     wrap.className = "position-node";
     wrap.style.left = `${slot.x}%`;
@@ -1348,7 +1349,7 @@ function renderFreePitch() {
   els.pitch.replaceChildren();
   els.pitch.appendChild(createPitchMarkingsSvg());
 
-  const slots = getFreeModeSlots();
+  const slots = applyMobileLineSpacing(getFreeModeSlots());
   if (!state.names || typeof state.names !== "object") state.names = {};
 
   slots.forEach((slot) => {
@@ -1937,6 +1938,37 @@ function isMobileMarkerScale() {
     window.matchMedia("(max-width: 720px)").matches ||
     window.matchMedia("(hover: none) and (pointer: coarse)").matches
   );
+}
+
+/** 모바일 — 같은 라인(4~5명) 좌우 간격을 안쪽으로 모아 양끝 잘림 방지 (표시·저장 공통) */
+function applyMobileLineSpacing(slots) {
+  if (!isMobileMarkerScale() || !slots?.length) return slots;
+
+  const result = slots.map((s) => ({ ...s }));
+  const yTolerance = 4;
+  const byLine = new Map();
+
+  result.forEach((slot) => {
+    const yKey = Math.round(slot.y / yTolerance) * yTolerance;
+    if (!byLine.has(yKey)) byLine.set(yKey, []);
+    byLine.get(yKey).push(slot);
+  });
+
+  for (const line of byLine.values()) {
+    if (line.length < 4) continue;
+
+    line.sort((a, b) => a.x - b.x);
+    const n = line.length;
+    const inset = n >= 5 ? 13 : 11;
+    const maxX = 100 - inset;
+
+    line.forEach((slot, i) => {
+      slot.x =
+        n === 1 ? slot.x : Math.round((inset + ((maxX - inset) * i) / (n - 1)) * 10) / 10;
+    });
+  }
+
+  return result;
 }
 
 /** 5백 등 측면 선수가 많을 때 저장·화면에서 좌우 잘림 방지 */
