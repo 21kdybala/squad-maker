@@ -1872,8 +1872,13 @@ function normalizeCaptureCloneLayout(root) {
   }
   const pitch = root.querySelector(".pitch");
   if (pitch) {
+    const pitchW = Math.round(pitch.getBoundingClientRect().width || pitch.offsetWidth || 0);
     pitch.style.maxHeight = "none";
-    pitch.style.width = "100%";
+    pitch.style.width = pitchW > 0 ? `${pitchW}px` : "100%";
+    if (pitchW > 0) {
+      pitch.style.height = `${Math.round((pitchW * 105) / 68)}px`;
+      pitch.style.aspectRatio = "68 / 105";
+    }
   }
   const pitchCol = root.querySelector(".pitch-column");
   if (pitchCol) {
@@ -1981,6 +1986,10 @@ function applyExportMarkerScale(root, noSubs) {
       markerWidth: marker?.style.width ?? "",
       markerMaxWidth: marker?.style.maxWidth ?? "",
       markerHeight: marker?.style.height ?? "",
+      markerMinWidth: marker?.style.minWidth ?? "",
+      markerMinHeight: marker?.style.minHeight ?? "",
+      markerMaxHeight: marker?.style.maxHeight ?? "",
+      markerExportSize: marker?.style.getPropertyValue("--export-marker-size") ?? "",
       mir,
       mirFont: mir?.style.fontSize ?? "",
       mirMinH: mir?.style.minHeight ?? "",
@@ -1993,9 +2002,17 @@ function applyExportMarkerScale(root, noSubs) {
     node.style.width = `${nodeW}px`;
     node.style.maxWidth = `${nodeW}px`;
     if (marker) {
-      marker.style.width = `${markerW}px`;
-      marker.style.maxWidth = `${markerW}px`;
-      marker.style.height = `${markerW}px`;
+      const size = `${markerW}px`;
+      marker.style.setProperty("--export-marker-size", size);
+      marker.style.width = size;
+      marker.style.height = size;
+      marker.style.minWidth = size;
+      marker.style.maxWidth = size;
+      marker.style.minHeight = size;
+      marker.style.maxHeight = size;
+      marker.style.borderRadius = "50%";
+      marker.style.boxSizing = "border-box";
+      marker.style.flex = "0 0 auto";
     }
     if (mir) {
       mir.style.fontSize = `${namePx}px`;
@@ -2024,6 +2041,10 @@ function restoreExportMarkerScale(root) {
       markerWidth,
       markerMaxWidth,
       markerHeight,
+      markerMinWidth,
+      markerMinHeight,
+      markerMaxHeight,
+      markerExportSize,
       mir,
       mirFont,
       mirMinH,
@@ -2037,6 +2058,14 @@ function restoreExportMarkerScale(root) {
         marker.style.width = markerWidth;
         marker.style.maxWidth = markerMaxWidth;
         marker.style.height = markerHeight;
+        marker.style.minWidth = markerMinWidth;
+        marker.style.minHeight = markerMinHeight;
+        marker.style.maxHeight = markerMaxHeight;
+        if (markerExportSize) marker.style.setProperty("--export-marker-size", markerExportSize);
+        else marker.style.removeProperty("--export-marker-size");
+        marker.style.removeProperty("border-radius");
+        marker.style.removeProperty("box-sizing");
+        marker.style.removeProperty("flex");
       }
       if (mir) {
         mir.style.fontSize = mirFont;

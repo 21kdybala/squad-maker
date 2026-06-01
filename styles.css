@@ -1028,8 +1028,8 @@ body.is-pitch-dragging {
   }
 
   .capture.is-exporting .marker {
-    max-width: none;
-    min-width: 34px;
+    min-width: unset;
+    max-width: unset;
   }
 
   .capture.is-exporting .name-mirror {
@@ -1107,14 +1107,24 @@ body.is-pitch-dragging {
   width: clamp(60px, 16.5%, 104px);
 }
 
+/** 저장 시 % 너비 + html2canvas 조합 시 원이 가로로 늘어남 → px 정사각형 고정 */
 .capture.is-exporting .marker {
-  width: 84%;
-  max-width: none;
-  min-width: 44px;
+  width: var(--export-marker-size, 42px) !important;
+  height: var(--export-marker-size, 42px) !important;
+  min-width: var(--export-marker-size, 42px) !important;
+  max-width: var(--export-marker-size, 42px) !important;
+  min-height: var(--export-marker-size, 42px) !important;
+  max-height: var(--export-marker-size, 42px) !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 .capture.is-exporting.capture--no-subs .marker {
-  min-width: 48px;
+  min-width: unset;
 }
 
 .capture.is-exporting .name-mirror {
