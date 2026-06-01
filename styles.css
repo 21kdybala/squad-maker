@@ -772,22 +772,30 @@ body.is-pitch-dragging {
   }
 
   .capture:not(.is-exporting) .position-node {
-    width: clamp(42px, 12vw, 58px);
+    width: clamp(46px, 13.2%, 64px);
   }
 
   .capture:not(.is-exporting) .marker {
-    width: 74%;
-    max-width: 42px;
+    width: 81%;
+    max-width: 46px;
   }
 
   .capture:not(.is-exporting) .marker__abbr {
-    font-size: 0.66rem;
+    font-size: 0.73rem;
   }
 
   .capture:not(.is-exporting) .name-input,
   .capture:not(.is-exporting) .name-mirror {
-    font-size: 0.78rem;
-    min-height: 1.28rem;
+    font-size: 0.86rem;
+    min-height: 1.41rem;
+  }
+
+  .capture.is-exporting .position-node {
+    width: clamp(46px, 12.1%, 68px);
+  }
+
+  .capture.is-exporting .marker {
+    max-width: 46px;
   }
 }
 
@@ -837,6 +845,9 @@ body.is-pitch-dragging {
 .capture.is-exporting .pitch {
   width: 100%;
   max-height: none;
+  /** 저장 시 마커 크기를 피치 너비에 비례 (SUB 없을 때 피치만 커져도 원이 작아 보이지 않음) */
+  container-type: inline-size;
+  container-name: export-pitch;
 }
 
 .capture.is-exporting .pitch-wrap--wide {
@@ -844,13 +855,13 @@ body.is-pitch-dragging {
 }
 
 .capture.is-exporting .position-node {
-  width: clamp(42px, 12vw, 64px);
+  width: clamp(48px, 12.1%, 70px);
   max-width: calc(100% - 4px);
 }
 
 .capture.is-exporting .marker {
-  width: 74%;
-  max-width: 44px;
+  width: 79%;
+  max-width: 48px;
 }
 
 .capture.is-exporting .name-mirror {
@@ -924,9 +935,9 @@ body.is-pitch-dragging {
   display: flex !important;
   align-items: center;
   justify-content: center;
-  min-height: 2.65rem;
+  min-height: 2.9rem;
   opacity: 1 !important;
-  font-size: 0.88rem;
+  font-size: 0.97rem;
   color: var(--pl-purple);
   border: 1px solid var(--border-strong);
   background: #ffffff;
@@ -945,6 +956,8 @@ body.is-pitch-dragging {
   margin: 0 auto;
   overflow: hidden;
   border-radius: 10px;
+  container-type: inline-size;
+  container-name: pitch;
 }
 
 /* 웹 미리보기: 코트를 세로로 더 크게 + 마커·이름 확대 (저장 시 is-exporting 에선 비활성 → 캡처 크기 유지) */
@@ -953,27 +966,27 @@ body.is-pitch-dragging {
 }
 
 .capture:not(.is-exporting) .position-node {
-  width: clamp(52px, 13vw, 88px);
+  width: clamp(57px, 14.3%, 97px);
   gap: 0;
 }
 
 .capture:not(.is-exporting) .marker {
-  width: 78%;
-  max-width: 58px;
+  width: 86%;
+  max-width: 64px;
 }
 
 .capture:not(.is-exporting) .marker__abbr {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
 }
 
 .capture:not(.is-exporting) .name-input {
   margin-top: 0.04rem;
-  font-size: 0.96rem;
-  padding: 0.16rem 0.12rem;
+  font-size: 1.06rem;
+  padding: 0.18rem 0.13rem;
 }
 
 .capture:not(.is-exporting) .name-mirror {
-  font-size: 0.96rem;
+  font-size: 1.06rem;
 }
 
 .pitch__markings {
@@ -996,7 +1009,7 @@ body.is-pitch-dragging {
 .position-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: clamp(46px, 11vw, 62px);
+  width: clamp(51px, 12.1%, 68px);
   max-width: calc(100% - 4px);
   display: flex;
   flex-direction: column;
@@ -1007,8 +1020,8 @@ body.is-pitch-dragging {
 }
 
 .marker {
-  width: 72%;
-  max-width: 44px;
+  width: 79%;
+  max-width: 48px;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
   border-radius: 999px;
@@ -1024,7 +1037,7 @@ body.is-pitch-dragging {
 }
 
 .marker__abbr {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.03em;
   color: #ffffff;
@@ -1062,9 +1075,9 @@ body.is-pitch-dragging {
   width: 100%;
   max-width: 100%;
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 800;
-  padding: 0.16rem 0.12rem;
+  padding: 0.18rem 0.13rem;
   border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.45);
   background: rgba(8, 12, 16, 0.92);
@@ -1075,7 +1088,7 @@ body.is-pitch-dragging {
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  min-height: 1.42rem;
+  min-height: 1.56rem;
 }
 
 .name-input::placeholder {
@@ -1091,7 +1104,7 @@ body.is-pitch-dragging {
 
 .name-mirror {
   width: 100%;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 900;
   text-align: center;
   color: #fff;
@@ -1105,7 +1118,7 @@ body.is-pitch-dragging {
   border-radius: 6px;
   border: 1px solid transparent;
   box-sizing: border-box;
-  min-height: 1.42rem;
+  min-height: 1.56rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1114,8 +1127,9 @@ body.is-pitch-dragging {
 }
 
 .capture.is-exporting .name-mirror {
-  font-size: 0.88rem;
-  padding: 0.16rem 0.12rem;
+  font-size: 0.97rem;
+  padding: 0.18rem 0.13rem;
+  min-height: 1.56rem;
   border: 1px solid rgba(255, 255, 255, 0.28);
   /** 반투명은 html2canvas 합성 시 채도·대비가 떨어져 보임 → 불투명 단색 */
   background: #0f1419;
@@ -1125,7 +1139,7 @@ body.is-pitch-dragging {
 }
 
 .capture.is-exporting .marker__abbr {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 
 /** 저장 시 inset 하이라이트가 캔버스에서 흐려 보일 수 있어 그림자만 유지 */
