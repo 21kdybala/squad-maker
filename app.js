@@ -2344,9 +2344,72 @@ function hydrate() {
   updateStepIndicatorsNav();
 }
 
+const VISITOR_COUNT_API = "https://countapi.mileshilliard.com/api/v1";
+const VISITOR_TOTAL_KEY = "gbsbfootball-squad-maker-total";
+const VISITOR_SESSION_KEY = "squad-maker-visitor-counted";
+
+function getKstDateKey() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
+}
+
+async function fetchVisitorCount(key, hit) {
+  const action = hit ? "hit" : "get";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(
+      `${VISITOR_COUNT_API}/${action}/${encodeURIComponent(key)}`,
+      { signal: controller.signal, mode: "cors" },
+    );
+    if (!res.ok) throw new Error("visitor count request failed");
+    const data = await res.json();
+    const value = Number(data?.value);
+    if (!Number.isFinite(value)) throw new Error("invalid visitor count");
+    return value;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function formatVisitorCount(value) {
+  return value.toLocaleString("ko-KR");
+}
+
+async function initVisitorStats() {
+  const statsEl = document.getElementById("footerStats");
+  const todayEl = document.getElementById("visitorToday");
+  const totalEl = document.getElementById("visitorTotal");
+  if (!statsEl || !todayEl || !totalEl) return;
+
+  const dailyKey = `gbsbfootball-squad-maker-daily-${getKstDateKey()}`;
+  const shouldHit = sessionStorage.getItem(VISITOR_SESSION_KEY) !== "1";
+
+  try {
+    const [todayCount, totalCount] = await Promise.all([
+      fetchVisitorCount(dailyKey, shouldHit),
+      fetchVisitorCount(VISITOR_TOTAL_KEY, shouldHit),
+    ]);
+
+    if (shouldHit) {
+      try {
+        sessionStorage.setItem(VISITOR_SESSION_KEY, "1");
+      } catch {
+        /* sessionStorage unavailable */
+      }
+    }
+
+    todayEl.textContent = formatVisitorCount(todayCount);
+    totalEl.textContent = formatVisitorCount(totalCount);
+    statsEl.hidden = false;
+  } catch (err) {
+    console.warn("visitor stats unavailable", err);
+  }
+}
+
 function boot() {
   if (!assertRequiredElements()) return;
   hydrate();
+  void initVisitorStats();
 }
 
 if (document.readyState === "loading") {

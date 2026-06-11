@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
-  <link rel="stylesheet" href="styles.css?v=20260601-mobile-line" />
+  <link rel="stylesheet" href="styles.css?v=20260601-visitor-stats" />
 </head>
 <body class="theme-pl">
   <div class="app">
@@ -171,10 +171,15 @@
         </a>
       </nav>
       <p class="footer__credit">Designed by <span class="footer__brand">개발새발 축구</span></p>
+      <p class="footer__stats" id="footerStats" hidden>
+        <span class="footer__stat">일일 <strong id="visitorToday">—</strong></span>
+        <span class="footer__stat-sep" aria-hidden="true">·</span>
+        <span class="footer__stat">누적 <strong id="visitorTotal">—</strong></span>
+      </p>
     </footer>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="./app.js?v=20260601-pc-five-line" defer></script>
+  <script src="./app.js?v=20260601-visitor-stats" defer></script>
 </body>
 </html>
